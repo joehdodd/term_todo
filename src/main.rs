@@ -31,6 +31,7 @@ fn main() -> std::io::Result<()> {
             }
             let task = &args[2..].join(" ");
             add_task(task);
+            print_tasks();
         }
         "delete" => {
             if args.len() < 3 {
@@ -40,6 +41,7 @@ fn main() -> std::io::Result<()> {
             }
             let task_number: usize = args[2].parse().expect("Please enter a valid number");
             delete_task(task_number);
+            print_tasks();
         }
         "print" => print_tasks(),
         _ => {
@@ -84,7 +86,6 @@ fn add_task(task: &str) {
         .expect("Cannot open file");
 
     writeln!(file, "{}", task.trim()).expect("Cannot write to file");
-    print_tasks()
 }
 
 fn delete_task(task_number: usize) {
@@ -121,5 +122,4 @@ fn delete_task(task_number: usize) {
     }
 
     println!("Task deleted successfully");
-    print_tasks()
 }
