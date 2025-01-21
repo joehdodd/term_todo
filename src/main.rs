@@ -13,6 +13,24 @@ use std::io;
 use tui_input::backend::crossterm::EventHandler;
 use tui_input::Input;
 
+enum InputMode {
+    Normal,
+    Insert,
+}
+
+#[derive(Clone)]
+struct Todo {
+    desc: String,
+    done: bool,
+}
+
+pub struct App {
+    exit: bool,
+    todos: Vec<Todo>,
+    input: Input,
+    input_mode: InputMode,
+}
+
 fn main() -> io::Result<()> {
     let mut terminal = ratatui::init();
     let mut app = App {
@@ -35,24 +53,6 @@ fn main() -> io::Result<()> {
     app_result
 }
 
-enum InputMode {
-    Normal,
-    Insert,
-}
-
-pub struct App {
-    exit: bool,
-    todos: Vec<Todo>,
-    input: Input,
-    input_mode: InputMode,
-}
-
-#[derive(Clone)]
-struct Todo {
-    desc: String,
-    done: bool,
-}
-
 impl App {
     fn run(&mut self, terminal: &mut DefaultTerminal) -> io::Result<()> {
         let mut list_state = ListState::default();
@@ -61,7 +61,6 @@ impl App {
             terminal.draw(|frame| self.draw(frame, &mut list_state))?;
             self.handle_events(&mut list_state)?;
         }
-
         Ok(())
     }
 
@@ -110,51 +109,33 @@ impl App {
         list_state: &mut ListState,
     ) -> io::Result<()> {
         match self.input_mode {
-            InputMode::Insert => {
-                match key_event.code {
-                    KeyCode::Enter => {
-                        self.todos.push(Todo {
-                            desc: self.input.value().to_string(),
-                            done: false,
-                        });
-                        self.input.reset();
-                    }
-                    KeyCode::Esc => {
-                        self.input_mode = InputMode::Normal;
-                    }
-                    _ => {
-                        self.input
-                            .handle_event(&crossterm::event::Event::Key(key_event));
-                    }
+            InputMode::Insert => match key_event.code {
+                KeyCode::Enter => {
+                    self.todos.push(Todo {
+                        desc: self.input.value().to_string(),
+                        done: false,
+                    });
+                    self.input.reset();
                 }
-                return Ok(());
-            }
-            InputMode::Normal => {
-                if key_event.kind == KeyEventKind::Press && key_event.code == KeyCode::Char('q') {
-                    self.exit = true;
+                KeyCode::Esc => {
+                    self.input_mode = InputMode::Normal;
                 }
-
-                if key_event.kind == KeyEventKind::Press && key_event.code == KeyCode::Down
-                    || key_event.code == KeyCode::Char('j')
-                {
-                    list_state.select_next()
+                _ => {
+                    self.input
+                        .handle_event(&crossterm::event::Event::Key(key_event));
                 }
-
-                if key_event.kind == KeyEventKind::Press && key_event.code == KeyCode::Up
-                    || key_event.code == KeyCode::Char('k')
-                {
-                    list_state.select_previous()
-                }
-
-                if key_event.kind == KeyEventKind::Press && key_event.code == KeyCode::Enter {
+            },
+            InputMode::Normal => match key_event.code {
+                KeyCode::Char('q') => self.exit = true,
+                KeyCode::Char('e') => self.input_mode = InputMode::Insert,
+                KeyCode::Char('j') | KeyCode::Down => list_state.select_next(),
+                KeyCode::Char('k') | KeyCode::Up => list_state.select_previous(),
+                KeyCode::Enter => {
                     let selected = list_state.selected().unwrap();
                     self.todos[selected].done = !self.todos[selected].done
                 }
-
-                if key_event.kind == KeyEventKind::Press && key_event.code == KeyCode::Char('e') {
-                    self.input_mode = InputMode::Insert;
-                }
-            }
+                _ => {}
+            },
         }
         Ok(())
     }
