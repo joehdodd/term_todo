@@ -1,4 +1,4 @@
-use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind};
+use crossterm::event::{Event, KeyCode, KeyEvent};
 use ratatui::layout::{Constraint, Direction, Layout};
 use ratatui::{
     buffer::Buffer,
