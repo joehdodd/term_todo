@@ -13,6 +13,24 @@ use std::io;
 use tui_input::backend::crossterm::EventHandler;
 use tui_input::Input;
 
+enum InputMode {
+    Normal,
+    Insert,
+}
+
+#[derive(Clone)]
+struct Todo {
+    desc: String,
+    done: bool,
+}
+
+pub struct App {
+    exit: bool,
+    todos: Vec<Todo>,
+    input: Input,
+    input_mode: InputMode,
+}
+
 fn main() -> io::Result<()> {
     let mut terminal = ratatui::init();
     let mut app = App {
@@ -35,24 +53,6 @@ fn main() -> io::Result<()> {
     app_result
 }
 
-enum InputMode {
-    Normal,
-    Insert,
-}
-
-pub struct App {
-    exit: bool,
-    todos: Vec<Todo>,
-    input: Input,
-    input_mode: InputMode,
-}
-
-#[derive(Clone)]
-struct Todo {
-    desc: String,
-    done: bool,
-}
-
 impl App {
     fn run(&mut self, terminal: &mut DefaultTerminal) -> io::Result<()> {
         let mut list_state = ListState::default();
@@ -61,7 +61,6 @@ impl App {
             terminal.draw(|frame| self.draw(frame, &mut list_state))?;
             self.handle_events(&mut list_state)?;
         }
-
         Ok(())
     }
 
