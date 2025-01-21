@@ -1,125 +1,195 @@
-use std::fs::OpenOptions;
-use std::io::{BufRead, BufReader, BufWriter, Write};
+use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind};
+use ratatui::layout::{Constraint, Direction, Layout};
+use ratatui::{
+    buffer::Buffer,
+    layout::{Position, Rect},
+    style::{Color, Style, Stylize},
+    symbols::border,
+    text::Line,
+    widgets::{Block, List, ListDirection, ListState, Paragraph, StatefulWidget},
+    DefaultTerminal, Frame,
+};
+use std::io;
+use tui_input::backend::crossterm::EventHandler;
+use tui_input::Input;
 
-fn main() -> std::io::Result<()> {
-    // collect user-supplied args into a Vec from std::env::args()
-    let args: Vec<String> = std::env::args().collect();
+fn main() -> io::Result<()> {
+    let mut terminal = ratatui::init();
+    let mut app = App {
+        exit: false,
+        todos: vec![
+            Todo {
+                desc: "Learn Rust".to_string(),
+                done: false,
+            },
+            Todo {
+                desc: "Iterate on Term_Todo".to_string(),
+                done: false,
+            },
+        ],
+        input: Input::default(),
+        input_mode: InputMode::Normal,
+    };
+    let app_result = app.run(&mut terminal);
+    ratatui::restore();
+    app_result
+}
 
-    // args[0] is the name of the program
-    // args[1] would be a supplied command
-    // if the number of args is < 2, we haven't received a command
-    // return early
-    if args.len() < 2 {
-        println!("Usage: {} <command> [args]", args[0]);
-        println!("Commands:");
-        println!("  add <task>    Add a new task");
-        println!("  delete <number>    Delete a task by number");
-        return Ok(());
+enum InputMode {
+    Normal,
+    Insert,
+}
+
+pub struct App {
+    exit: bool,
+    todos: Vec<Todo>,
+    input: Input,
+    input_mode: InputMode,
+}
+
+#[derive(Clone)]
+struct Todo {
+    desc: String,
+    done: bool,
+}
+
+impl App {
+    fn run(&mut self, terminal: &mut DefaultTerminal) -> io::Result<()> {
+        let mut list_state = ListState::default();
+        list_state.select_first();
+        while !self.exit {
+            terminal.draw(|frame| self.draw(frame, &mut list_state))?;
+            self.handle_events(&mut list_state)?;
+        }
+
+        Ok(())
     }
 
-    // borrow the value of args[1] as the supplied command
-    let command = &args[1];
+    fn draw(&self, frame: &mut Frame, list_state: &mut ListState) {
+        // create the main layout
+        let layout = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints(vec![Constraint::Percentage(75), Constraint::Percentage(25)])
+            .split(frame.area());
+        // set the cursor position based on the input mode
+        let mut border_style = Style::new().fg(Color::White);
+        match self.input_mode {
+            InputMode::Insert => {
+                border_style = Style::new().fg(Color::Green);
+                frame.set_cursor_position(Position {
+                    x: layout[1].x + self.input.visual_cursor() as u16 + 1,
+                    y: layout[1].y + 1,
+                });
+            }
+            InputMode::Normal => {}
+        }
 
-    // match on command as a string slice (such that each match arm can be "<some_string_slice>")
-    match command.as_str() {
-        "add" => {
-            // add requires 3 args <program_name> add (command) <task>
-            if args.len() < 3 {
-                println!("Please supply a task when using add");
-                println!("  Usage: {} add <task_description>", args[0]);
+        // render the "stateful" List widget
+        frame.render_stateful_widget(self, layout[0], list_state);
+
+        // create a paragraph widget for the input
+        let paragraph = Paragraph::new(self.input.value())
+            .block(Block::bordered().border_set(border::THICK).title("Input"))
+            .style(border_style);
+
+        // render the paragraph widget
+        frame.render_widget(paragraph, layout[1]);
+    }
+
+    fn handle_events(&mut self, list_state: &mut ListState) -> io::Result<()> {
+        match crossterm::event::read()? {
+            Event::Key(key_event) => self.handle_key_event(key_event, list_state)?,
+            _ => {}
+        }
+        Ok(())
+    }
+
+    fn handle_key_event(
+        &mut self,
+        key_event: KeyEvent,
+        list_state: &mut ListState,
+    ) -> io::Result<()> {
+        match self.input_mode {
+            InputMode::Insert => {
+                match key_event.code {
+                    KeyCode::Enter => {
+                        self.todos.push(Todo {
+                            desc: self.input.value().to_string(),
+                            done: false,
+                        });
+                        self.input.reset();
+                    }
+                    KeyCode::Esc => {
+                        self.input_mode = InputMode::Normal;
+                    }
+                    _ => {
+                        self.input
+                            .handle_event(&crossterm::event::Event::Key(key_event));
+                    }
+                }
                 return Ok(());
             }
-            let task = &args[2..].join(" ");
-            add_task(task);
-            print_tasks();
-        }
-        "delete" => {
-            if args.len() < 3 {
-                println!("Please supply a task number when using delete");
-                println!("  Usage: {} delete <number>", args[0]);
-                return Ok(());
+            InputMode::Normal => {
+                if key_event.kind == KeyEventKind::Press && key_event.code == KeyCode::Char('q') {
+                    self.exit = true;
+                }
+
+                if key_event.kind == KeyEventKind::Press && key_event.code == KeyCode::Down
+                    || key_event.code == KeyCode::Char('j')
+                {
+                    list_state.select_next()
+                }
+
+                if key_event.kind == KeyEventKind::Press && key_event.code == KeyCode::Up
+                    || key_event.code == KeyCode::Char('k')
+                {
+                    list_state.select_previous()
+                }
+
+                if key_event.kind == KeyEventKind::Press && key_event.code == KeyCode::Enter {
+                    let selected = list_state.selected().unwrap();
+                    self.todos[selected].done = !self.todos[selected].done
+                }
+
+                if key_event.kind == KeyEventKind::Press && key_event.code == KeyCode::Char('e') {
+                    self.input_mode = InputMode::Insert;
+                }
             }
-            let task_number: usize = args[2].parse().expect("Please enter a valid number");
-            delete_task(task_number);
-            print_tasks();
         }
-        "print" => print_tasks(),
-        _ => {
-            println!("Unknown command: {}", command);
-            println!("Usage: {} <command> [args]", args[0]);
-            println!("Commands:");
-            println!("  add <task>       Add a new task");
-            println!("  delete <number>  Delete a task by number");
-            return Ok(());
-        }
-    }
-
-    Ok(())
-}
-
-fn print_tasks() {
-    let file = OpenOptions::new()
-        .read(true)
-        .open("tasks.txt")
-        .expect("Cannot open file");
-
-    let f = BufReader::new(file);
-
-    let mut count = 0;
-    for line in f.lines() {
-        count += 1;
-        match line {
-            Ok(content) => println!("{count}. {}", content),
-            Err(e) => println!("Error reading line: {}", e),
-        }
+        Ok(())
     }
 }
 
-fn add_task(task: &str) {
-    println!("Adding task...");
-    let task = String::from(task);
-
-    let mut file = OpenOptions::new()
-        .append(true)
-        .create(true)
-        .open("tasks.txt")
-        .expect("Cannot open file");
-
-    writeln!(file, "{}", task.trim()).expect("Cannot write to file");
+fn get_items(items: Vec<Todo>) -> Vec<String> {
+    items
+        .iter()
+        .map(|item| {
+            let done = if item.done { "✓" } else { " " };
+            format!("{} {}", item.desc, done)
+        })
+        .collect()
 }
 
-fn delete_task(task_number: usize) {
-    println!("Deleting task...");
+// https://docs.rs/ratatui/latest/ratatui/widgets/trait.StatefulWidget.html
+impl StatefulWidget for &App {
+    type State = ListState;
+    fn render(self, area: Rect, buf: &mut Buffer, state: &mut ListState) {
+        let title = Line::from(" Term_Todo ").centered().bold();
+        let instructions = Line::from(" Press 'q' to exit, Press 'e' to enter editing mode, Press 'esc' to return to normal mode ").centered();
+        let items = &self.todos;
 
-    let file = OpenOptions::new()
-        .read(true)
-        .open("tasks.txt")
-        .expect("Cannot open file");
-
-    let reader = BufReader::new(file);
-    let mut tasks: Vec<String> = reader
-        .lines()
-        .collect::<Result<_, _>>()
-        .expect("Error reading lines");
-
-    if task_number == 0 || task_number > tasks.len() {
-        println!("Invalid task number");
-        return;
+        List::new(get_items(items.to_vec()))
+            .block(
+                Block::bordered()
+                    .title(title)
+                    .title_bottom(instructions)
+                    .border_set(border::THICK),
+            )
+            .style(Style::new().white())
+            .highlight_style(Style::new().black().bg(Color::Blue))
+            .highlight_symbol(">> ")
+            .repeat_highlight_symbol(true)
+            .direction(ListDirection::TopToBottom)
+            .render(area, buf, state);
     }
-
-    tasks.remove(task_number - 1);
-
-    let file = OpenOptions::new()
-        .write(true)
-        .truncate(true)
-        .open("tasks.txt")
-        .expect("Cannot open file");
-
-    let mut writer = BufWriter::new(file);
-
-    for task in tasks {
-        writeln!(writer, "{}", task).expect("Error writing to file");
-    }
-
-    println!("Task deleted successfully");
 }
