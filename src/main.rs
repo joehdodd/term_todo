@@ -85,6 +85,7 @@ fn get_items(items: Vec<Todo>) -> Vec<String> {
     items.iter().map(|item| format!("{}", item.desc)).collect()
 }
 
+// https://docs.rs/ratatui/latest/ratatui/widgets/trait.StatefulWidget.html
 impl StatefulWidget for &App {
     type State = ListState;
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut ListState) {
