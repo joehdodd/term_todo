@@ -9,7 +9,9 @@ use ratatui::{
     widgets::{Block, List, ListDirection, ListState, Paragraph, StatefulWidget},
     DefaultTerminal, Frame,
 };
-use std::io;
+use serde::{Deserialize, Serialize};
+use std::io::prelude::*;
+use std::{fs::OpenOptions, io, io::Write};
 use tui_input::backend::crossterm::EventHandler;
 use tui_input::Input;
 
@@ -18,7 +20,7 @@ enum InputMode {
     Insert,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 struct Todo {
     desc: String,
     done: bool,
@@ -26,6 +28,7 @@ struct Todo {
 
 pub struct App {
     exit: bool,
+    file: std::fs::File,
     todos: Vec<Todo>,
     input: Input,
     input_mode: InputMode,
@@ -33,18 +36,26 @@ pub struct App {
 
 fn main() -> io::Result<()> {
     let mut terminal = ratatui::init();
+    let mut file = OpenOptions::new()
+        .append(true)
+        .create(true)
+        .read(true)
+        .open("todos.json")
+        .expect("Could not open or write to file.");
+
+    let mut contents = String::new();
+    file.read_to_string(&mut contents)?;
+
+    let file_json: Vec<Todo> = if contents.is_empty() {
+        Vec::new()
+    } else {
+        serde_json::from_str(&contents).expect("Could not process file.")
+    };
+
     let mut app = App {
         exit: false,
-        todos: vec![
-            Todo {
-                desc: "Learn Rust".to_string(),
-                done: false,
-            },
-            Todo {
-                desc: "Iterate on Term_Todo".to_string(),
-                done: false,
-            },
-        ],
+        file,
+        todos: file_json.to_vec(),
         input: Input::default(),
         input_mode: InputMode::Normal,
     };
@@ -115,6 +126,8 @@ impl App {
                         desc: self.input.value().to_string(),
                         done: false,
                     });
+
+                    self.write_file()?;
                     self.input.reset();
                 }
                 KeyCode::Esc => {
@@ -132,11 +145,20 @@ impl App {
                 KeyCode::Char('k') | KeyCode::Up => list_state.select_previous(),
                 KeyCode::Enter => {
                     let selected = list_state.selected().unwrap();
-                    self.todos[selected].done = !self.todos[selected].done
+                    self.todos[selected].done = !self.todos[selected].done;
+                    self.write_file()?;
                 }
                 _ => {}
             },
         }
+        Ok(())
+    }
+
+    fn write_file(&mut self) -> io::Result<()> {
+        let updated_contents =
+            serde_json::to_string(&self.todos).expect("Could not serialize todos.");
+        self.file.set_len(0)?;
+        self.file.write_all(updated_contents.as_bytes())?;
         Ok(())
     }
 }
