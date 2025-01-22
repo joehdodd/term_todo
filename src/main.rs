@@ -79,7 +79,11 @@ impl App {
         // create the main layout
         let layout = Layout::default()
             .direction(Direction::Vertical)
-            .constraints(vec![Constraint::Percentage(75), Constraint::Percentage(25)])
+            .constraints(vec![
+                Constraint::Percentage(60),
+                Constraint::Percentage(20),
+                Constraint::Percentage(20),
+            ])
             .split(frame.area());
         // set the cursor position based on the input mode
         let mut border_style = Style::new().fg(Color::White);
@@ -104,6 +108,18 @@ impl App {
 
         // render the paragraph widget
         frame.render_widget(paragraph, layout[1]);
+
+        let footer_text = vec![
+            Line::from("Press 'q' to quit,"),
+            Line::from("'e' to edit,"),
+            Line::from("'Enter' to toggle,"),
+            Line::from("'j' and 'k' to navigate."),
+            Line::from("Use 'Esc' to switch back to normal mode from insert mode."),
+        ];
+        let footer = Paragraph::new(footer_text)
+            .block(Block::bordered().border_set(border::THICK).title("Help"));
+
+        frame.render_widget(footer, layout[2]);
     }
 
     fn handle_events(&mut self, list_state: &mut ListState) -> io::Result<()> {
@@ -178,16 +194,10 @@ impl StatefulWidget for &App {
     type State = ListState;
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut ListState) {
         let title = Line::from(" Term_Todo ").centered().bold();
-        let instructions = Line::from(" Press 'q' to exit, Press 'e' to enter editing mode, Press 'esc' to return to normal mode ").centered();
         let items = &self.todos;
 
         List::new(get_items(items.to_vec()))
-            .block(
-                Block::bordered()
-                    .title(title)
-                    .title_bottom(instructions)
-                    .border_set(border::THICK),
-            )
+            .block(Block::bordered().title(title).border_set(border::THICK))
             .style(Style::new().white())
             .highlight_style(Style::new().black().bg(Color::Blue))
             .highlight_symbol(">> ")

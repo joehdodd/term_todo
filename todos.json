@@ -1,1 +1,22 @@
-[{"desc":"My first todo","done":true},{"desc":"My second todo","done":true},{"desc":"New","done":false}]
+[
+    {
+        "desc": "My first todo",
+        "done": false
+    },
+    {
+        "desc": "My second todo",
+        "done": false
+    },
+    {
+        "desc": "New",
+        "done": false
+    },
+    {
+        "desc": "Another todo",
+        "done": true
+    },
+    {
+        "desc": "Yet another todo",
+        "done": false
+    }
+]
