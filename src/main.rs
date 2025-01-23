@@ -34,6 +34,12 @@ pub struct App {
     input_mode: InputMode,
 }
 
+// TODO
+// 1. Update Todo struct to have detail key whose value is String
+// 2. Update app layout to be two panes vertically and horizontally
+//      1. Top pane has list of todos on the left, detail view for todo on the right
+//      2. Bottom pane has input for todos and details on left, help on right
+// 3. Update app logic to handle inputting for list and for details
 fn main() -> io::Result<()> {
     let mut terminal = ratatui::init();
     let mut file = OpenOptions::new()
@@ -76,7 +82,6 @@ impl App {
     }
 
     fn draw(&self, frame: &mut Frame, list_state: &mut ListState) {
-        // create the main layout
         let layout = Layout::default()
             .direction(Direction::Vertical)
             .constraints(vec![
@@ -85,7 +90,6 @@ impl App {
                 Constraint::Percentage(20),
             ])
             .split(frame.area());
-        // set the cursor position based on the input mode
         let mut border_style = Style::new().fg(Color::White);
         match self.input_mode {
             InputMode::Insert => {
@@ -98,15 +102,12 @@ impl App {
             InputMode::Normal => {}
         }
 
-        // render the "stateful" List widget
         frame.render_stateful_widget(self, layout[0], list_state);
 
-        // create a paragraph widget for the input
         let paragraph = Paragraph::new(self.input.value())
             .block(Block::bordered().border_set(border::THICK).title("Input"))
             .style(border_style);
 
-        // render the paragraph widget
         frame.render_widget(paragraph, layout[1]);
 
         let footer_text = vec![
@@ -118,7 +119,8 @@ impl App {
             Line::from("Press 'q' to quit."),
         ];
         let footer = Paragraph::new(footer_text)
-            .block(Block::bordered().border_set(border::THICK).title("Help"));
+            .block(Block::bordered().border_set(border::THICK).title("Help"))
+            .style(Style::new().fg(Color::Gray));
 
         frame.render_widget(footer, layout[2]);
     }
@@ -214,7 +216,7 @@ impl StatefulWidget for &App {
         List::new(get_items(items.to_vec()))
             .block(Block::bordered().title(title).border_set(border::THICK))
             .style(Style::new().white())
-            .highlight_style(Style::new().black().bg(Color::Blue))
+            .highlight_style(Style::new().black().bg(Color::Green))
             .highlight_symbol(">> ")
             .repeat_highlight_symbol(true)
             .direction(ListDirection::TopToBottom)
