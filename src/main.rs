@@ -111,8 +111,8 @@ impl App {
 
         let footer_text = vec![
             Line::from("Press 'q' to quit,"),
-            Line::from("'e' to edit,"),
-            Line::from("'Enter' to toggle,"),
+            Line::from("'i' to enter insert mode,"),
+            Line::from("'Enter' to toggle todo items,"),
             Line::from("'j' and 'k' to navigate."),
             Line::from("Use 'Esc' to switch back to normal mode from insert mode."),
         ];
@@ -156,7 +156,7 @@ impl App {
             },
             InputMode::Normal => match key_event.code {
                 KeyCode::Char('q') => self.exit = true,
-                KeyCode::Char('e') => self.input_mode = InputMode::Insert,
+                KeyCode::Char('i') => self.input_mode = InputMode::Insert,
                 KeyCode::Char('j') | KeyCode::Down => list_state.select_next(),
                 KeyCode::Char('k') | KeyCode::Up => list_state.select_previous(),
                 KeyCode::Enter => {
