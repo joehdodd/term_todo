@@ -110,11 +110,12 @@ impl App {
         frame.render_widget(paragraph, layout[1]);
 
         let footer_text = vec![
-            Line::from("Press 'q' to quit,"),
+            Line::from("Press 'j' or 'k' to navigate,"),
+            Line::from("'Enter' to toggle todo item 'done' status,"),
+            Line::from("'d' to delete todo item,"),
             Line::from("'i' to enter insert mode,"),
-            Line::from("'Enter' to toggle todo items,"),
-            Line::from("'j' and 'k' to navigate."),
-            Line::from("Use 'Esc' to switch back to normal mode from insert mode."),
+            Line::from("'Esc' to enter normal mode from insert mode,"),
+            Line::from("Press 'q' to quit."),
         ];
         let footer = Paragraph::new(footer_text)
             .block(Block::bordered().border_set(border::THICK).title("Help"));
@@ -159,6 +160,17 @@ impl App {
                 KeyCode::Char('i') => self.input_mode = InputMode::Insert,
                 KeyCode::Char('j') | KeyCode::Down => list_state.select_next(),
                 KeyCode::Char('k') | KeyCode::Up => list_state.select_previous(),
+                KeyCode::Char('d') => {
+                    let selected = list_state.selected().unwrap();
+                    let len = self.todos.len();
+                    match selected {
+                        0..=len => {
+                            self.todos.remove(selected);
+                            self.write_file()?;
+                        }
+                        _ => {}
+                    }
+                }
                 KeyCode::Enter => {
                     let selected = list_state.selected().unwrap();
                     self.todos[selected].done = !self.todos[selected].done;
