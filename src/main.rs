@@ -139,6 +139,11 @@ impl App {
         match self.input_mode {
             InputMode::Insert => match key_event.code {
                 KeyCode::Enter => {
+                    let value = self.input.value();
+                    if value.is_empty() {
+                        self.input_mode = InputMode::Normal;
+                        return Ok(());
+                    }
                     self.todos.push(Todo {
                         desc: self.input.value().to_string(),
                         done: false,
@@ -146,6 +151,7 @@ impl App {
 
                     self.write_file()?;
                     self.input.reset();
+                    list_state.select_last();
                 }
                 KeyCode::Esc => {
                     self.input_mode = InputMode::Normal;
@@ -161,14 +167,11 @@ impl App {
                 KeyCode::Char('j') | KeyCode::Down => list_state.select_next(),
                 KeyCode::Char('k') | KeyCode::Up => list_state.select_previous(),
                 KeyCode::Char('d') => {
-                    let selected = list_state.selected().unwrap();
                     let len = self.todos.len();
-                    match selected {
-                        0..=len => {
-                            self.todos.remove(selected);
-                            self.write_file()?;
-                        }
-                        _ => {}
+                    if len > 0 {
+                        let selected = list_state.selected().unwrap();
+                        self.todos.remove(selected);
+                        self.write_file()?;
                     }
                 }
                 KeyCode::Enter => {
